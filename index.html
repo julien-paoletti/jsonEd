@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSONed — Graphical JSON Editor</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #1e1e2e;
+      --surface: #181825;
+      --surface2: #313244;
+      --border: #45475a;
+      --text: #cdd6f4;
+      --subtext: #a6adc8;
+      --key: #89b4fa;
+      --str: #a6e3a1;
+      --brace: #f38ba8;
+      --bracket: #fab387;
+      --accent: #cba6f7;
+      --hover: #585b70;
+      --focus-ring: #89b4fa;
+      --entry-indent: 24px;
+    }
+
+    html,
+    body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      font-size: 14px;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    #toolbar h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.04em;
+      margin-right: 12px;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface2);
+      color: var(--text);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .btn:hover {
+      background: var(--hover);
+      border-color: var(--focus-ring);
+    }
+
+    .btn svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
+    #filename-display {
+      margin-left: auto;
+      color: var(--subtext);
+      font-size: 12px;
+      font-style: italic;
+    }
+
+    #main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    #editor-panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px;
+      min-width: 0;
+    }
+
+    #preview-panel {
+      width: 300px;
+      flex-shrink: 0;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #preview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 14px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    #preview-header h2 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--subtext);
+    }
+
+    #btn-copy {
+      padding: 3px 8px;
+      font-size: 11px;
+    }
+
+    #btn-copy.copied {
+      color: var(--str);
+      border-color: var(--str);
+    }
+
+    #preview-content {
+      flex: 1;
+      overflow: auto;
+      padding: 14px;
+      font-size: 12px;
+      line-height: 1.7;
+      white-space: pre;
+      color: var(--text);
+      tab-size: 2;
+    }
+
+    .json-node {
+      position: relative;
+    }
+
+    .node-brace {
+      color: var(--brace);
+      font-weight: 700;
+      font-size: 15px;
+      line-height: 1.6;
+      user-select: none;
+      padding: 0 2px;
+    }
+
+    .node-entries {
+      padding-left: var(--entry-indent);
+      border-left: 2px solid var(--border);
+      margin-left: 6px;
+    }
+
+    .entry-row {
+      display: flex;
+      align-items: flex-start;
+      padding: 2px 0;
+      position: relative;
+    }
+
+    .entry-row:hover {
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 4px;
+    }
+
+    .key-input,
+    .val-input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: inherit;
+      font-family: inherit;
+      font-size: inherit;
+      padding: 2px 4px;
+      min-width: 4ch;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.15s, background 0.15s;
+      border-radius: 3px;
+    }
+
+    .key-input {
+      color: var(--key);
+    }
+
+    .val-input {
+      color: var(--str);
+    }
+
+    .key-input:focus,
+    .val-input:focus {
+      border-bottom-color: var(--focus-ring);
+      background: rgba(137, 180, 250, 0.06);
+    }
+
+    .key-input::placeholder {
+      color: var(--border);
+      font-style: italic;
+    }
+
+    .val-input::placeholder {
+      color: var(--border);
+      font-style: italic;
+    }
+
+    .colon {
+      color: var(--subtext);
+      padding: 2px 3px;
+      user-select: none;
+      align-self: flex-start;
+      padding-top: 4px;
+    }
+
+    .comma {
+      color: var(--subtext);
+      user-select: none;
+      padding: 2px 0;
+      align-self: flex-start;
+      padding-top: 4px;
+    }
+
+    .remove-btn {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      margin-left: 4px;
+      margin-top: 4px;
+      border: none;
+      background: none;
+      color: var(--border);
+      cursor: pointer;
+      border-radius: 3px;
+      font-size: 12px;
+      transition: color 0.15s, background 0.15s;
+      flex-shrink: 0;
+    }
+
+    .entry-row:hover .remove-btn {
+      display: flex;
+    }
+
+    .remove-btn:hover {
+      color: var(--brace);
+      background: rgba(243, 139, 168, 0.12);
+    }
+
+    .node-closing-line {
+      display: flex;
+      align-items: center;
+    }
+
+    .val-node-wrapper {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      margin-right: 2px;
+      border: none;
+      background: none;
+      color: var(--subtext);
+      cursor: pointer;
+      border-radius: 3px;
+      flex-shrink: 0;
+      transition: color 0.15s, transform 0.15s;
+      vertical-align: middle;
+    }
+
+    .toggle-btn:hover {
+      color: var(--text);
+    }
+
+    .toggle-btn svg {
+      width: 10px;
+      height: 10px;
+      transition: transform 0.15s;
+    }
+
+    .toggle-btn.collapsed svg {
+      transform: rotate(-90deg);
+    }
+
+    .node-collapsible {
+      display: grid;
+      grid-template-rows: 1fr;
+      transition: grid-template-rows 0.2s ease;
+    }
+
+    .node-collapsible-inner {
+      overflow: hidden;
+    }
+
+    .json-node.collapsed .node-collapsible {
+      grid-template-rows: 0fr;
+    }
+
+    .node-open-line {
+      display: flex;
+      align-items: center;
+    }
+
+    .collapsed-preview {
+      display: none;
+      color: var(--brace);
+      font-weight: 700;
+      font-size: 15px;
+      line-height: 1.6;
+      padding: 0 2px;
+      user-select: none;
+      margin-left: 5px;
+    }
+
+    .json-node.collapsed .collapsed-preview {
+      display: inline;
+    }
+
+    .collapsed-preview-array {
+      color: var(--bracket);
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--surface);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--hover);
+    }
+
+    #hints {
+      padding: 5px 16px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--subtext);
+      display: flex;
+      gap: 18px;
+      flex-shrink: 0;
+    }
+
+    #hints kbd {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--text);
+    }
+
+    #select-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      overflow: hidden;
+      max-height: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      transition: max-height 0.2s ease, padding 0.2s ease;
+    }
+
+    #select-bar.open {
+      max-height: 48px;
+      padding-top: 6px;
+      padding-bottom: 6px;
+    }
+
+    #select-input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 4px 10px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    #select-input:focus {
+      border-color: var(--focus-ring);
+    }
+
+    #select-input.error {
+      border-color: var(--brace);
+      color: var(--brace);
+    }
+
+    #select-count {
+      font-size: 12px;
+      color: var(--subtext);
+      white-space: nowrap;
+      min-width: 6ch;
+    }
+
+    .entry-row.select-match {
+      background: rgba(203, 166, 247, 0.12);
+      border-radius: 4px;
+      outline: 1px solid rgba(203, 166, 247, 0.35);
+    }
+
+    /* ── array ── */
+    .node-bracket {
+      color: var(--bracket);
+      font-weight: 700;
+      font-size: 15px;
+      line-height: 1.6;
+      user-select: none;
+      padding: 0 2px;
+    }
+
+    .array-item-row {
+      display: flex;
+      align-items: flex-start;
+      padding: 2px 0;
+      position: relative;
+    }
+    .array-item-row:hover { background: rgba(255,255,255,0.02); border-radius: 4px; }
+    .array-item-row:hover .remove-btn { display: flex; }
+
+    .array-idx {
+      color: var(--subtext);
+      font-size: 11px;
+      padding: 4px 4px 2px 0;
+      user-select: none;
+      min-width: 2ch;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* ── type picker menu ── */
+    .type-menu {
+      position: absolute;
+      z-index: 100;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      min-width: 130px;
+    }
+    .type-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+      border: none;
+      background: none;
+      font-family: inherit;
+      text-align: left;
+      transition: background 0.1s;
+    }
+    .type-menu-item:hover, .type-menu-item.active {
+      background: var(--hover);
+    }
+    .type-menu-item .glyph {
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .type-menu-item .glyph-obj { color: var(--brace); }
+    .type-menu-item .glyph-arr { color: var(--bracket); }
+  </style>
+</head>
+
+<body>
+
+  <div id="toolbar">
+    <h1>JSONed</h1>
+    <button class="btn" id="btn-new" title="New document">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+      </svg>
+      New
+    </button>
+    <button class="btn" id="btn-open" title="Open JSON file">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      </svg>
+      Open
+    </button>
+    <button class="btn" id="btn-save" title="Save JSON file">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+        <polyline points="17 21 17 13 7 13 7 21" />
+        <polyline points="7 3 7 8 15 8" />
+      </svg>
+      Save
+    </button>
+    <input type="file" id="file-input" accept=".json" style="display:none">
+    <span id="filename-display">untitled.json</span>
+  </div>
+
+  <div id="select-bar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+      style="width:14px;height:14px;flex-shrink:0;color:var(--subtext)">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+    <input id="select-input" type="text" placeholder=".key  /  .a.b  /  .items[] | select(.type == &quot;x&quot;)"
+      spellcheck="false">
+    <span id="select-count"></span>
+    <button class="btn" id="btn-select-close" style="padding:3px 8px;font-size:11px">✕</button>
+  </div>
+
+  <div id="main">
+    <div id="editor-panel">
+      <div id="root-node"></div>
+    </div>
+    <div id="preview-panel">
+      <div id="preview-header">
+        <h2>JSON Preview</h2>
+        <button class="btn" id="btn-copy" title="Copy JSON to clipboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" />
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+          </svg>
+          Copy
+        </button>
+      </div>
+      <div id="preview-content"></div>
+    </div>
+  </div>
+
+  <div id="hints">
+    <span><kbd>Tab</kbd> key → next field / new entry</span>
+    <span><kbd>↓</kbd> in value → nest object/array</span>
+    <span><kbd>Backspace</kbd> on empty key → delete entry</span>
+    <span><kbd>Ctrl+S</kbd> save</span>
+    <span><kbd>Ctrl+F</kbd> select</span>
+  </div>
+
+  <script>
+    const SVG_COPY = '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>';
+    const SVG_CHECK = '<polyline points="20 6 9 17 4 12"/>';
+
+    let idCounter = 0;
+    function newId() { return ++idCounter; }
+
+    function makeEntry(key = '', valueText = '') {
+      return { id: newId(), key, value: { type: 'string', text: valueText } };
+    }
+
+    function makeNode(entries) {
+      return { type: 'object', entries: entries || [makeEntry()] };
+    }
+
+    function makeArrayItem(valueText = '') {
+      return { id: newId(), value: { type: 'string', text: valueText } };
+    }
+
+    function makeArray(items) {
+      return { type: 'array', items: items || [makeArrayItem()] };
+    }
+
+    let rootNode = makeNode();
+    let currentFilename = 'untitled.json';
+
+    function renderContainer(data, openChar, closeChar, renderItemFn, items, extraPreviewClass) {
+      const el = document.createElement('div');
+      el.className = 'json-node' + (data.collapsed ? ' collapsed' : '');
+
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'toggle-btn' + (data.collapsed ? ' collapsed' : '');
+      toggleBtn.title = 'Collapse/expand';
+      toggleBtn.innerHTML = '<svg viewBox="0 0 10 10" fill="currentColor"><polygon points="1,2 9,2 5,8"/></svg>';
+      toggleBtn.addEventListener('click', () => {
+        data.collapsed = !data.collapsed;
+        el.classList.toggle('collapsed', data.collapsed);
+        toggleBtn.classList.toggle('collapsed', data.collapsed);
+        updatePreview();
+      });
+
+      const openLine = document.createElement('div');
+      openLine.className = 'node-open-line';
+      openLine.appendChild(toggleBtn);
+
+      const openBrace = document.createElement('span');
+      openBrace.className = 'node-brace' + (extraPreviewClass ? ' node-bracket' : '');
+      openBrace.textContent = openChar;
+      openLine.appendChild(openBrace);
+
+      const collapsedPreview = document.createElement('span');
+      collapsedPreview.className = 'collapsed-preview' + (extraPreviewClass ? ' ' + extraPreviewClass : '');
+      collapsedPreview.textContent = '… ' + closeChar;
+      openLine.appendChild(collapsedPreview);
+
+      el.appendChild(openLine);
+
+      const collapsible = document.createElement('div');
+      collapsible.className = 'node-collapsible';
+
+      const collapsibleInner = document.createElement('div');
+      collapsibleInner.className = 'node-collapsible-inner';
+
+      const itemsEl = document.createElement('div');
+      itemsEl.className = 'node-entries';
+      items.forEach((item, idx) => itemsEl.appendChild(renderItemFn(item, data, idx)));
+      collapsibleInner.appendChild(itemsEl);
+
+      const closeBrace = document.createElement('span');
+      closeBrace.className = 'node-brace node-brace-close' + (extraPreviewClass ? ' node-bracket' : '');
+      closeBrace.textContent = closeChar;
+      collapsibleInner.appendChild(closeBrace);
+
+      collapsible.appendChild(collapsibleInner);
+      el.appendChild(collapsible);
+
+      return el;
+    }
+
+    function renderNode(node) {
+      return renderContainer(node, '{', '}', renderEntry, node.entries, null);
+    }
+
+    function renderArray(arr) {
+      return renderContainer(arr, '[', ']', renderArrayItem, arr.items, 'collapsed-preview-array');
+    }
+
+    function makeRemoveBtn(onClick) {
+      const btn = document.createElement('button');
+      btn.className = 'remove-btn';
+      btn.title = 'Remove entry';
+      btn.innerHTML = '×';
+      btn.addEventListener('click', onClick);
+      return btn;
+    }
+
+    function makeNestedWrapper(subEl, isLastItem, removeBtn) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'val-node-wrapper';
+
+      const closingBrace = subEl.querySelector('.node-collapsible-inner > .node-brace-close');
+      closingBrace.parentNode.removeChild(closingBrace);
+
+      const closingLine = document.createElement('div');
+      closingLine.className = 'node-closing-line';
+      closingLine.appendChild(closingBrace);
+
+      if (!isLastItem) {
+        const comma = document.createElement('span');
+        comma.className = 'comma';
+        comma.textContent = ',';
+        closingLine.appendChild(comma);
+      }
+
+      closingLine.appendChild(removeBtn);
+      subEl.querySelector('.node-collapsible-inner').appendChild(closingLine);
+      wrapper.appendChild(subEl);
+      return wrapper;
+    }
+
+    function renderArrayItem(item, parentArr, idx) {
+      const row = document.createElement('div');
+      row.className = 'array-item-row';
+      row.dataset.entryId = item.id;
+
+      const idxLabel = document.createElement('span');
+      idxLabel.className = 'array-idx';
+      idxLabel.textContent = idx + ':';
+      row.appendChild(idxLabel);
+
+      if (item.value.type === 'string') {
+        const valEl = document.createElement('input');
+        valEl.type = 'text';
+        valEl.className = 'val-input';
+        valEl.value = item.value.text;
+        valEl.placeholder = 'value';
+        valEl.setAttribute('spellcheck', 'false');
+        autoSize(valEl);
+
+        valEl.addEventListener('input', () => {
+          item.value.text = valEl.value;
+          autoSize(valEl);
+          updatePreview();
+        });
+        valEl.addEventListener('keydown', (e) => onArrayItemKeyInput(e, item, parentArr, valEl, row));
+
+        row.appendChild(valEl);
+
+        if (idx < parentArr.items.length - 1) {
+          const comma = document.createElement('span');
+          comma.className = 'comma';
+          comma.textContent = ',';
+          row.appendChild(comma);
+        }
+
+        row.appendChild(makeRemoveBtn(() => {
+          const i = parentArr.items.indexOf(item);
+          if (parentArr.items.length > 1) { parentArr.items.splice(i, 1); rerender(); }
+        }));
+      } else {
+        const subEl = item.value.type === 'object' ? renderNode(item.value.node) : renderArray(item.value.arr);
+        const isLast = idx === parentArr.items.length - 1;
+        const rmBtn = makeRemoveBtn(() => {
+          const i = parentArr.items.indexOf(item);
+          if (parentArr.items.length > 1) { parentArr.items.splice(i, 1); rerender(); }
+        });
+        row.appendChild(makeNestedWrapper(subEl, isLast, rmBtn));
+      }
+
+      return row;
+    }
+
+function onArrayItemKeyInput(e, item, parentArr, inputEl, row) {
+      if ((e.key === 'Tab' && !e.shiftKey) || e.key === 'Enter') {
+        e.preventDefault();
+        const idx = parentArr.items.indexOf(item);
+        const newItem = makeArrayItem();
+        parentArr.items.splice(idx + 1, 0, newItem);
+        rerender();
+        focusArrayItem(newItem.id);
+      }
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        showTypeMenu(e, () => convertToObject(item), () => convertToArray(item));
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const idx = parentArr.items.indexOf(item);
+        if (idx > 0) {
+          focusArrayItem(parentArr.items[idx - 1].id);
+        } else {
+          const ancestorRow = row.closest('.array-item-row')?.parentElement?.closest('.entry-row,.array-item-row');
+          if (ancestorRow) ancestorRow.querySelector('.key-input,.val-input')?.focus();
+        }
+      }
+
+      if (e.key === 'Backspace' && inputEl.value === '' && parentArr.items.length > 1) {
+        e.preventDefault();
+        const idx = parentArr.items.indexOf(item);
+        parentArr.items.splice(idx, 1);
+        rerender();
+        const prev = parentArr.items[Math.max(0, idx - 1)];
+        if (prev) focusArrayItem(prev.id);
+      }
+    }
+
+    function focusById(id, selector) {
+      requestAnimationFrame(() => {
+        const row = document.querySelector(`[data-entry-id="${id}"]`);
+        if (row) row.querySelector(selector)?.focus();
+      });
+    }
+
+    function focusArrayItem(itemId) { focusById(itemId, '.val-input'); }
+
+    function focusParentKeyFromRow(row) {
+      const ancestorRow = row.closest('.entry-row')?.parentElement?.closest('.entry-row');
+      if (ancestorRow) {
+        const keyInput = ancestorRow.querySelector(':scope > .key-input');
+        if (keyInput) keyInput.focus();
+      }
+    }
+
+    function renderEntry(entry, parentNode, idx) {
+      const row = document.createElement('div');
+      row.className = 'entry-row';
+      row.dataset.entryId = entry.id;
+
+      const keyEl = document.createElement('input');
+      keyEl.type = 'text';
+      keyEl.className = 'key-input';
+      keyEl.value = entry.key;
+      keyEl.placeholder = 'key';
+      keyEl.setAttribute('spellcheck', 'false');
+      autoSize(keyEl);
+
+      keyEl.addEventListener('input', () => {
+        entry.key = keyEl.value;
+        autoSize(keyEl);
+        updatePreview();
+      });
+      keyEl.addEventListener('keydown', (e) => onKeyInput(e, entry, parentNode, 'key', keyEl, row));
+      keyEl.addEventListener('blur', () => {
+        if (entry.key === '' && parentNode.entries.length > 1) {
+          removeEntryAndFocusPrev(entry, parentNode);
+        }
+      });
+
+      const colon = document.createElement('span');
+      colon.className = 'colon';
+      colon.textContent = ': ';
+
+      row.appendChild(keyEl);
+      row.appendChild(colon);
+
+      if (entry.value.type === 'string') {
+        const valEl = document.createElement('input');
+        valEl.type = 'text';
+        valEl.className = 'val-input';
+        valEl.value = entry.value.text;
+        valEl.placeholder = 'value';
+        valEl.setAttribute('spellcheck', 'false');
+        autoSize(valEl);
+
+        valEl.addEventListener('input', () => {
+          entry.value.text = valEl.value;
+          autoSize(valEl);
+          updatePreview();
+        });
+        valEl.addEventListener('keydown', (e) => onKeyInput(e, entry, parentNode, 'value', valEl, row));
+
+        row.appendChild(valEl);
+
+        if (idx < parentNode.entries.length - 1) {
+          const comma = document.createElement('span');
+          comma.className = 'comma';
+          comma.textContent = ',';
+          row.appendChild(comma);
+        }
+
+        row.appendChild(makeRemoveBtn(() => removeEntry(entry, parentNode)));
+      } else {
+        const subEl = entry.value.type === 'object' ? renderNode(entry.value.node) : renderArray(entry.value.arr);
+        const isLast = idx === parentNode.entries.length - 1;
+        row.appendChild(makeNestedWrapper(subEl, isLast, makeRemoveBtn(() => removeEntry(entry, parentNode))));
+      }
+
+      return row;
+    }
+
+    function autoSize(input) {
+      const len = Math.max(input.value.length, input.placeholder.length, 3);
+      input.style.width = (len + 2) + 'ch';
+    }
+
+    function onKeyInput(e, entry, parentNode, field, inputEl, row) {
+      if (field === 'key') {
+        if (e.key === 'Tab' && !e.shiftKey) {
+          e.preventDefault();
+          const valInput = row.querySelector('.val-input');
+          if (valInput) valInput.focus();
+        }
+
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addEntryAfter(entry, parentNode);
+        }
+
+        if (e.key === 'Backspace' && inputEl.value === '') {
+          e.preventDefault();
+          if (parentNode.entries.length > 1) {
+            removeEntryAndFocusPrev(entry, parentNode);
+          }
+        }
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const idx = parentNode.entries.indexOf(entry);
+          if (idx < parentNode.entries.length - 1) {
+            focusEntryKey(parentNode.entries[idx + 1].id);
+          }
+        }
+
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          const idx = parentNode.entries.indexOf(entry);
+          if (idx > 0) {
+            focusEntryKey(parentNode.entries[idx - 1].id);
+          } else {
+            focusParentKeyFromRow(row);
+          }
+        }
+      }
+
+      if (field === 'value') {
+        if ((e.key === 'Tab' && !e.shiftKey) || e.key === 'Enter') {
+          e.preventDefault();
+          addEntryAfter(entry, parentNode);
+        }
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          showTypeMenu(e, () => convertToObject(entry), () => convertToArray(entry));
+        }
+
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          focusParentKeyFromRow(row);
+        }
+      }
+    }
+
+    function addEntryAfter(entry, parentNode) {
+      const idx = parentNode.entries.indexOf(entry);
+      const newEntry = makeEntry();
+      parentNode.entries.splice(idx + 1, 0, newEntry);
+      rerender();
+      focusEntryKey(newEntry.id);
+    }
+
+    function removeEntry(entry, parentNode) {
+      const idx = parentNode.entries.indexOf(entry);
+      if (parentNode.entries.length === 1) return;
+      parentNode.entries.splice(idx, 1);
+      rerender();
+    }
+
+    function removeEntryAndFocusPrev(entry, parentNode) {
+      const idx = parentNode.entries.indexOf(entry);
+      parentNode.entries.splice(idx, 1);
+      rerender();
+      const prev = parentNode.entries[Math.max(0, idx - 1)];
+      if (prev) focusEntryKey(prev.id);
+    }
+
+    function convertToObject(target) {
+      const initialKey = target.value.type === 'string' ? target.value.text : '';
+      const subEntry = makeEntry(initialKey);
+      target.value = { type: 'object', node: makeNode([subEntry]) };
+      rerender();
+      focusEntryKey(subEntry.id);
+    }
+
+    function convertToArray(target) {
+      const initialText = target.value.type === 'string' ? target.value.text : '';
+      const firstItem = makeArrayItem(initialText);
+      target.value = { type: 'array', arr: makeArray([firstItem]) };
+      rerender();
+      focusArrayItem(firstItem.id);
+    }
+
+    let activeTypeMenu = null;
+
+    function showTypeMenu(e, onObject, onArray) {
+      dismissTypeMenu();
+
+      const inputEl = e.target;
+      const rect = inputEl.getBoundingClientRect();
+
+      const menu = document.createElement('div');
+      menu.className = 'type-menu';
+      menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+      menu.style.left = (rect.left + window.scrollX) + 'px';
+
+      const choices = [
+        { label: 'Object', glyph: '{ }', glyphClass: 'glyph-obj', action: onObject },
+        { label: 'Array',  glyph: '[ ]', glyphClass: 'glyph-arr', action: onArray  },
+      ];
+
+      let selectedIdx = 0;
+
+      const btns = choices.map((it, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'type-menu-item' + (i === 0 ? ' active' : '');
+        btn.innerHTML = `<span class="glyph ${it.glyphClass}">${it.glyph}</span>${it.label}`;
+        btn.addEventListener('mousedown', (ev) => { ev.preventDefault(); choose(i); });
+        menu.appendChild(btn);
+        return btn;
+      });
+
+      document.body.appendChild(menu);
+      activeTypeMenu = menu;
+
+      function setSelected(idx) {
+        btns[selectedIdx].classList.remove('active');
+        selectedIdx = idx;
+        btns[selectedIdx].classList.add('active');
+      }
+
+      function choose(idx) {
+        cleanup();
+        dismissTypeMenu();
+        choices[idx].action();
+      }
+
+      function onKey(ev) {
+        if (ev.key === 'ArrowDown') { ev.preventDefault(); ev.stopPropagation(); setSelected((selectedIdx + 1) % btns.length); }
+        else if (ev.key === 'ArrowUp') { ev.preventDefault(); ev.stopPropagation(); setSelected((selectedIdx - 1 + btns.length) % btns.length); }
+        else if (ev.key === 'Enter') { ev.preventDefault(); ev.stopPropagation(); choose(selectedIdx); }
+        else if (ev.key === 'Escape') { cleanup(); dismissTypeMenu(); }
+      }
+
+      function onFocusOut() { setTimeout(() => { if (activeTypeMenu === menu) { cleanup(); dismissTypeMenu(); } }, 100); }
+
+      function cleanup() {
+        document.removeEventListener('keydown', onKey, true);
+        inputEl.removeEventListener('blur', onFocusOut);
+      }
+
+      document.addEventListener('keydown', onKey, true);
+      inputEl.addEventListener('blur', onFocusOut);
+    }
+
+    function dismissTypeMenu() {
+      if (activeTypeMenu) { activeTypeMenu.remove(); activeTypeMenu = null; }
+    }
+
+    function focusEntryKey(entryId) { focusById(entryId, '.key-input'); }
+
+    function rerender() {
+      const panel = document.getElementById('root-node');
+      panel.innerHTML = '';
+      panel.appendChild(renderNode(rootNode));
+      updatePreview();
+      requestAnimationFrame(refreshSelect);
+    }
+
+    function valueToJS(value) {
+      if (value.type === 'string') {
+        const raw = value.text;
+        if (raw === 'true') return true;
+        if (raw === 'false') return false;
+        if (raw === 'null') return null;
+        if (raw !== '' && !isNaN(Number(raw))) return Number(raw);
+        return raw;
+      }
+      if (value.type === 'object') return nodeToJS(value.node);
+      if (value.type === 'array')  return arrToJS(value.arr);
+      return null;
+    }
+
+    function nodeToJS(node) {
+      const obj = {};
+      for (const entry of node.entries) {
+        if (!entry.key) continue;
+        obj[entry.key] = valueToJS(entry.value);
+      }
+      return obj;
+    }
+
+    function arrToJS(arr) {
+      return arr.items.map(item => valueToJS(item.value));
+    }
+
+    function jsToValue(v) {
+      if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+        return { type: 'object', node: jsToNode(v) };
+      }
+      if (Array.isArray(v)) {
+        return { type: 'array', arr: jsToArr(v) };
+      }
+      return { type: 'string', text: v === null ? 'null' : String(v) };
+    }
+
+    function jsToNode(obj) {
+      if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) return makeNode();
+      const entries = Object.entries(obj).map(([k, v]) => ({ id: newId(), key: k, value: jsToValue(v) }));
+      if (entries.length === 0) entries.push(makeEntry());
+      return { type: 'object', entries };
+    }
+
+    function jsToArr(arr) {
+      if (!Array.isArray(arr)) return makeArray();
+      const items = arr.map(v => ({ id: newId(), value: jsToValue(v) }));
+      if (items.length === 0) items.push(makeArrayItem());
+      return { type: 'array', items };
+    }
+
+    function updatePreview() {
+      const json = JSON.stringify(nodeToJS(rootNode), null, 2);
+      document.getElementById('preview-content').textContent = json;
+    }
+
+    function refreshSelect() {
+      if (selectBar.classList.contains('open') && selectInput.value.trim()) runSelect();
+    }
+
+    document.getElementById('btn-save').addEventListener('click', saveFile);
+    document.getElementById('btn-copy').addEventListener('click', (e) => {
+      const json = document.getElementById('preview-content').textContent;
+      navigator.clipboard.writeText(json).then(() => {
+        const btn = e.currentTarget;
+        btn.classList.add('copied');
+        btn.querySelector('svg').innerHTML = SVG_CHECK;
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.querySelector('svg').innerHTML = SVG_COPY;
+        }, 1500);
+      });
+    });
+    document.getElementById('btn-open').addEventListener('click', () => {
+      document.getElementById('file-input').click();
+    });
+    document.getElementById('btn-new').addEventListener('click', newDocument);
+
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveFile();
+      }
+    });
+
+    function saveFile() {
+      const json = JSON.stringify(nodeToJS(rootNode), null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = currentFilename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    document.getElementById('file-input').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      currentFilename = file.name;
+      document.getElementById('filename-display').textContent = file.name;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          rootNode = jsToNode(data);
+          rerender();
+        } catch {
+          alert('Invalid JSON file.');
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    });
+
+    function newDocument() {
+      currentFilename = 'untitled.json';
+      document.getElementById('filename-display').textContent = currentFilename;
+      rootNode = makeNode();
+      rerender();
+      focusEntryKey(rootNode.entries[0].id);
+    }
+
+    rerender();
+    focusEntryKey(rootNode.entries[0].id);
+
+    // ── jq-like select ──────────────────────────────────────────────────────────
+
+    const selectBar = document.getElementById('select-bar');
+    const selectInput = document.getElementById('select-input');
+    const selectCount = document.getElementById('select-count');
+
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        selectBar.classList.add('open');
+        selectInput.focus();
+        selectInput.select();
+      }
+      if (e.key === 'Escape' && selectBar.classList.contains('open')) {
+        closeSelect();
+      }
+    });
+
+    document.getElementById('btn-select-close').addEventListener('click', closeSelect);
+
+    selectInput.addEventListener('input', runSelect);
+    selectInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeSelect();
+    });
+
+    function closeSelect() {
+      selectBar.classList.remove('open');
+      selectInput.value = '';
+      clearSelectHighlights();
+      selectCount.textContent = '';
+      updatePreview();
+    }
+
+    function clearSelectHighlights() {
+      document.querySelectorAll('.entry-row.select-match').forEach(el => el.classList.remove('select-match'));
+    }
+
+    // Parse and evaluate a jq-like expression against the JS value of rootNode.
+    // Supported:
+    //   .                        identity
+    //   .key                     field access
+    //   .key.nested              chained field access
+    //   .[]  or  .key[]          iterate all values / array-like object values
+    //   expr | expr              pipe
+    //   select(cond)             filter: keep values where cond is truthy
+    //   Conditions in select():  .key == val, .key != val, .key > val, .key < val
+    //   String literals in conditions must be quoted: "foo" or 'foo'
+
+    function jqEval(expr, inputs) {
+      expr = expr.trim();
+
+      // pipe: split on top-level `|`
+      const pipeIdx = findTopLevel(expr, '|');
+      if (pipeIdx !== -1) {
+        const left = expr.slice(0, pipeIdx).trim();
+        const right = expr.slice(pipeIdx + 1).trim();
+        const mid = jqEval(left, inputs);
+        return jqEval(right, mid);
+      }
+
+      // select(condition)
+      if (expr.startsWith('select(') && expr.endsWith(')')) {
+        const condStr = expr.slice(7, -1).trim();
+        return inputs.filter(v => evalCondition(condStr, v));
+      }
+
+      // identity
+      if (expr === '.') return inputs;
+
+      // iterator: .[] or .[something] (we treat .[] as flatten one level)
+      if (expr === '.[]') {
+        return inputs.flatMap(v => {
+          if (v && typeof v === 'object' && !Array.isArray(v)) return Object.values(v);
+          if (Array.isArray(v)) return v;
+          return [];
+        });
+      }
+
+      // field path possibly ending with []
+      // e.g. .foo  .foo.bar  .foo[]  .foo.bar[]
+      if (expr.startsWith('.')) {
+        let path = expr.slice(1); // remove leading dot
+        let iterate = false;
+        if (path.endsWith('[]')) { iterate = true; path = path.slice(0, -2); }
+        const keys = path ? path.split('.') : [];
+        let results = inputs;
+        for (const key of keys) {
+          results = results.flatMap(v => {
+            if (v && typeof v === 'object' && !Array.isArray(v) && key in v) return [v[key]];
+            return [];
+          });
+        }
+        if (iterate) {
+          results = results.flatMap(v => {
+            if (v && typeof v === 'object' && !Array.isArray(v)) return Object.values(v);
+            if (Array.isArray(v)) return v;
+            return [];
+          });
+        }
+        return results;
+      }
+
+      return inputs;
+    }
+
+    function evalCondition(cond, val) {
+      // Supported: .key OP literal  where OP is ==, !=, <, >, <=, >=
+      const m = cond.match(/^(.+?)\s*(==|!=|<=|>=|<|>)\s*(.+)$/);
+      if (!m) return false;
+      const [, lhsExpr, op, rhsRaw] = m;
+      const lhsArr = jqEval(lhsExpr.trim(), [val]);
+      const lhs = lhsArr[0];
+      const rhs = parseLiteral(rhsRaw.trim());
+      if (op === '==') return lhs == rhs;
+      if (op === '!=') return lhs != rhs;
+      if (op === '<') return lhs < rhs;
+      if (op === '>') return lhs > rhs;
+      if (op === '<=') return lhs <= rhs;
+      if (op === '>=') return lhs >= rhs;
+      return false;
+    }
+
+    function parseLiteral(s) {
+      if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+        return s.slice(1, -1);
+      }
+      if (s === 'true') return true;
+      if (s === 'false') return false;
+      if (s === 'null') return null;
+      const n = Number(s);
+      return isNaN(n) ? s : n;
+    }
+
+    // Find the index of a top-level (not nested in parens) occurrence of char in str
+    function findTopLevel(str, char) {
+      let depth = 0;
+      for (let i = 0; i < str.length; i++) {
+        if (str[i] === '(') depth++;
+        else if (str[i] === ')') depth--;
+        else if (depth === 0 && str.slice(i, i + char.length) === char) return i;
+      }
+      return -1;
+    }
+
+    // Given a jq expression, collect the set of entry IDs that are "matched" —
+    // i.e. entries whose value satisfies the expression at the last path step.
+    function collectMatchedEntryIds(expr) {
+      expr = expr.trim();
+      if (!expr || expr === '.') return new Set();
+
+      // We want to highlight the entry rows that contain the matched values.
+      // Strategy: walk the model tree guided by the path segments, collecting
+      // entry IDs at the last key step (or all entries for []).
+      const ids = new Set();
+      collectFromNode(rootNode, expr, ids);
+      return ids;
+    }
+
+    function collectFromNode(node, expr, ids) {
+      // Split on top-level pipe
+      const pipeIdx = findTopLevel(expr, '|');
+      if (pipeIdx !== -1) {
+        const left = expr.slice(0, pipeIdx).trim();
+        const right = expr.slice(pipeIdx + 1).trim();
+        // Collect intermediate nodes matching left, then apply right
+        const midNodes = collectNodesForExpr(node, left);
+        for (const { node: n, entryId } of midNodes) {
+          if (right.startsWith('select(') && right.endsWith(')')) {
+            const condStr = right.slice(7, -1).trim();
+            const jsVal = nodeToJS(n);
+            if (evalCondition(condStr, jsVal)) ids.add(entryId);
+          } else {
+            collectFromNode(n, right, ids);
+          }
+        }
+        return;
+      }
+
+      if (!expr.startsWith('.')) return;
+      let path = expr.slice(1);
+      let iterate = false;
+      if (path.endsWith('[]')) { iterate = true; path = path.slice(0, -2); }
+      const keys = path ? path.split('.') : [];
+
+      if (keys.length === 0 && iterate) {
+        // .[] — highlight all top-level entries
+        for (const entry of node.entries) ids.add(entry.id);
+        return;
+      }
+
+      // Walk down to the second-to-last key, then highlight entries matching last key
+      let currentNodes = [node];
+      for (let i = 0; i < keys.length - 1; i++) {
+        const key = keys[i];
+        const next = [];
+        for (const n of currentNodes) {
+          const e = n.entries.find(en => en.key === key);
+          if (e && e.value.type === 'object') next.push(e.value.node);
+        }
+        currentNodes = next;
+      }
+
+      const lastKey = keys[keys.length - 1];
+      for (const n of currentNodes) {
+        for (const entry of n.entries) {
+          if (entry.key === lastKey) {
+            if (iterate && entry.value.type === 'object') {
+              for (const subEntry of entry.value.node.entries) ids.add(subEntry.id);
+            } else {
+              ids.add(entry.id);
+            }
+          }
+        }
+      }
+    }
+
+    // Returns [{node, entryId}] for entries matching path up to [] iteration
+    function collectNodesForExpr(node, expr) {
+      if (!expr.startsWith('.')) return [];
+      let path = expr.slice(1);
+      let iterate = false;
+      if (path.endsWith('[]')) { iterate = true; path = path.slice(0, -2); }
+      const keys = path ? path.split('.') : [];
+
+      let current = [{ node, entryId: null }];
+      for (const key of keys) {
+        const next = [];
+        for (const { node: n } of current) {
+          const e = n.entries.find(en => en.key === key);
+          if (e && e.value.type === 'object') next.push({ node: e.value.node, entryId: e.id });
+        }
+        current = next;
+      }
+
+      if (iterate) {
+        return current.flatMap(({ node: n }) =>
+          n.entries.filter(e => e.value.type === 'object').map(e => ({ node: e.value.node, entryId: e.id }))
+        );
+      }
+      return current;
+    }
+
+    function runSelect() {
+      const expr = selectInput.value.trim();
+      clearSelectHighlights();
+      selectInput.classList.remove('error');
+
+      if (!expr) {
+        selectCount.textContent = '';
+        updatePreview();
+        return;
+      }
+
+      try {
+        const js = nodeToJS(rootNode);
+        const results = jqEval(expr, [js]);
+
+        // Highlight matched entry rows
+        const ids = collectMatchedEntryIds(expr);
+        ids.forEach(id => {
+          const row = document.querySelector(`[data-entry-id="${id}"]`);
+          if (row) row.classList.add('select-match');
+        });
+
+        selectCount.textContent = `${results.length} result${results.length !== 1 ? 's' : ''}`;
+
+        // Show filtered result in preview
+        const out = results.length === 1 ? results[0] : results;
+        document.getElementById('preview-content').textContent = JSON.stringify(out, null, 2);
+      } catch {
+        selectInput.classList.add('error');
+        selectCount.textContent = 'error';
+      }
+    }
+
+  </script>
+</body>
+
+</html>
