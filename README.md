@@ -1,6 +1,6 @@
 # JSONed
 
-A graphical JSON editor that runs entirely in the browser — no build step, no dependencies, one HTML file.
+A graphical JSON editor that runs entirely in the browser: no dependencies, one HTML file.
 
 ## Features
 
@@ -43,7 +43,7 @@ Supported operators in `select()`: `==` `!=` `<` `>` `<=` `>=`
 
 ## Usage
 
-Open `index.html` directly in any modern browser, or visit the [GitHub Pages deployment](../../).
+Open `index.html` directly in any modern browser, or visit the [GitHub Pages deployment](https://julien-paoletti.github.io/jsonEd/).
 
 No installation required.
 

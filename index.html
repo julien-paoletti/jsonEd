@@ -244,7 +244,8 @@
       padding-top: 4px;
     }
 
-    .remove-btn {
+    .remove-btn,
+    .dupe-btn {
       display: none;
       align-items: center;
       justify-content: center;
@@ -262,13 +263,19 @@
       flex-shrink: 0;
     }
 
-    .entry-row:hover .remove-btn {
+    .entry-row:hover .remove-btn,
+    .entry-row:hover .dupe-btn {
       display: flex;
     }
 
     .remove-btn:hover {
       color: var(--brace);
       background: rgba(243, 139, 168, 0.12);
+    }
+
+    .dupe-btn:hover {
+      color: var(--accent);
+      background: rgba(203, 166, 247, 0.12);
     }
 
     .node-closing-line {
@@ -463,7 +470,8 @@
       position: relative;
     }
     .array-item-row:hover { background: rgba(255,255,255,0.02); border-radius: 4px; }
-    .array-item-row:hover .remove-btn { display: flex; }
+    .array-item-row:hover .remove-btn,
+    .array-item-row:hover .dupe-btn { display: flex; }
 
     .array-idx {
       color: var(--subtext);
@@ -671,16 +679,65 @@
       return renderContainer(arr, '[', ']', renderArrayItem, arr.items, 'collapsed-preview-array');
     }
 
-    function makeRemoveBtn(onClick) {
+    function makeIconBtn(className, title, glyph, onClick) {
       const btn = document.createElement('button');
-      btn.className = 'remove-btn';
-      btn.title = 'Remove entry';
-      btn.innerHTML = '×';
+      btn.className = className;
+      btn.title = title;
+      btn.innerHTML = glyph;
       btn.addEventListener('click', onClick);
       return btn;
     }
 
-    function makeNestedWrapper(subEl, isLastItem, removeBtn) {
+    const makeRemoveBtn    = onClick => makeIconBtn('remove-btn', 'Remove entry',    '×', onClick);
+    const makeDuplicateBtn = onClick => makeIconBtn('dupe-btn',   'Duplicate entry', '⎘', onClick);
+
+    function cloneValue(value) {
+      if (value.type === 'string') return { type: 'string', text: value.text };
+      if (value.type === 'object') return { type: 'object', node: cloneNode(value.node) };
+      if (value.type === 'array')  return { type: 'array',  arr:  cloneArr(value.arr)  };
+      throw new Error(`cloneValue: unhandled type "${value.type}"`);
+    }
+
+    function cloneNode(node) {
+      return {
+        type: 'object',
+        collapsed: false,
+        entries: node.entries.map(e => ({ id: newId(), key: e.key, value: cloneValue(e.value) })),
+      };
+    }
+
+    function cloneArr(arr) {
+      return {
+        type: 'array',
+        collapsed: false,
+        items: arr.items.map(it => ({ id: newId(), value: cloneValue(it.value) })),
+      };
+    }
+
+    function collapseValue(value) {
+      if (value.type === 'object') value.node.collapsed = true;
+      else if (value.type === 'array') value.arr.collapsed = true;
+    }
+
+    function duplicateEntry(entry, parentNode) {
+      const i = parentNode.entries.indexOf(entry);
+      collapseValue(entry.value);
+      const copy = { id: newId(), key: entry.key, value: cloneValue(entry.value) };
+      parentNode.entries.splice(i + 1, 0, copy);
+      rerender();
+      focusById(copy.id, '.key-input', true);
+    }
+
+    function duplicateItem(item, parentArr) {
+      const i = parentArr.items.indexOf(item);
+      collapseValue(item.value);
+      const copy = { id: newId(), value: cloneValue(item.value) };
+      parentArr.items.splice(i + 1, 0, copy);
+      rerender();
+      focusById(copy.id, '.val-input');
+    }
+
+    function makeNestedWrapper(subEl, isLastItem, dupeBtn, removeBtn) {
       const wrapper = document.createElement('div');
       wrapper.className = 'val-node-wrapper';
 
@@ -698,6 +755,7 @@
         closingLine.appendChild(comma);
       }
 
+      closingLine.appendChild(dupeBtn);
       closingLine.appendChild(removeBtn);
       subEl.querySelector('.node-collapsible-inner').appendChild(closingLine);
       wrapper.appendChild(subEl);
@@ -739,6 +797,7 @@
           row.appendChild(comma);
         }
 
+        row.appendChild(makeDuplicateBtn(() => duplicateItem(item, parentArr)));
         row.appendChild(makeRemoveBtn(() => {
           const i = parentArr.items.indexOf(item);
           if (parentArr.items.length > 1) { parentArr.items.splice(i, 1); rerender(); }
@@ -746,11 +805,12 @@
       } else {
         const subEl = item.value.type === 'object' ? renderNode(item.value.node) : renderArray(item.value.arr);
         const isLast = idx === parentArr.items.length - 1;
+        const dupeBtn = makeDuplicateBtn(() => duplicateItem(item, parentArr));
         const rmBtn = makeRemoveBtn(() => {
           const i = parentArr.items.indexOf(item);
           if (parentArr.items.length > 1) { parentArr.items.splice(i, 1); rerender(); }
         });
-        row.appendChild(makeNestedWrapper(subEl, isLast, rmBtn));
+        row.appendChild(makeNestedWrapper(subEl, isLast, dupeBtn, rmBtn));
       }
 
       return row;
@@ -792,10 +852,10 @@ function onArrayItemKeyInput(e, item, parentArr, inputEl, row) {
       }
     }
 
-    function focusById(id, selector) {
+    function focusById(id, selector, select = false) {
       requestAnimationFrame(() => {
-        const row = document.querySelector(`[data-entry-id="${id}"]`);
-        if (row) row.querySelector(selector)?.focus();
+        const el = document.querySelector(`[data-entry-id="${id}"]`)?.querySelector(selector);
+        if (el) { el.focus(); if (select) el.select(); }
       });
     }
 
@@ -866,11 +926,14 @@ function onArrayItemKeyInput(e, item, parentArr, inputEl, row) {
           row.appendChild(comma);
         }
 
+        row.appendChild(makeDuplicateBtn(() => duplicateEntry(entry, parentNode)));
         row.appendChild(makeRemoveBtn(() => removeEntry(entry, parentNode)));
       } else {
         const subEl = entry.value.type === 'object' ? renderNode(entry.value.node) : renderArray(entry.value.arr);
         const isLast = idx === parentNode.entries.length - 1;
-        row.appendChild(makeNestedWrapper(subEl, isLast, makeRemoveBtn(() => removeEntry(entry, parentNode))));
+        row.appendChild(makeNestedWrapper(subEl, isLast,
+          makeDuplicateBtn(() => duplicateEntry(entry, parentNode)),
+          makeRemoveBtn(() => removeEntry(entry, parentNode))));
       }
 
       return row;
