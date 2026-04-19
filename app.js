@@ -1,6 +1,6 @@
 import { makeNode } from './model.js';
 import { nodeToJS, jsToNode } from './serialization.js';
-import { setRerender, focusEntryKey, setAllCollapsed } from './actions.js';
+import { setRerender, focusEntryKey, setAllCollapsed, isShortcut } from './actions.js';
 import { renderNode, setUpdatePreview, setRerender as setRenderRerender } from './render.js';
 import { initSelectBar, refreshSelect, setRootNodeGetter, setUpdatePreview as setSelectUpdatePreview, setRerender as setSelectRerender } from './select.js';
 
@@ -81,7 +81,7 @@ document.getElementById('btn-open').addEventListener('click', () => {
 document.getElementById('btn-new').addEventListener('click', newDocument);
 
 document.addEventListener('keydown', (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+  if (isShortcut(e, 's')) {
     e.preventDefault();
     saveFile();
   }

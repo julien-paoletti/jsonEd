@@ -4,7 +4,7 @@ import {
   addEntryAfter, removeEntry, removeEntryAndFocusPrev,
   duplicateEntry, duplicateItem,
   convertToObject, convertToArray,
-  showTypeMenu,
+  showTypeMenu, isShortcut,
 } from './actions.js';
 
 let _updatePreview;
@@ -290,6 +290,11 @@ function onArrayItemKeyInput(e, item, parentArr, inputEl, row) {
     const prev = parentArr.items[Math.max(0, idx - 1)];
     if (prev) focusArrayItem(prev.id);
   }
+
+  if (isShortcut(e, 'd')) {
+    e.preventDefault();
+    duplicateItem(item, parentArr);
+  }
 }
 
 // ── entry ─────────────────────────────────────────────────────────────────────
@@ -415,5 +420,10 @@ function onKeyInput(e, entry, parentNode, field, inputEl, row) {
       e.preventDefault();
       focusParentKeyFromRow(row);
     }
+  }
+
+  if (isShortcut(e, 'd')) {
+    e.preventDefault();
+    duplicateEntry(entry, parentNode);
   }
 }

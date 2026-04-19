@@ -1,5 +1,5 @@
 import { nodeToJS } from './serialization.js';
-import { setAllCollapsed } from './actions.js';
+import { setAllCollapsed, isShortcut } from './actions.js';
 import { getChildren, getNestedContainer } from './model.js';
 
 // injected by app.js
@@ -18,7 +18,7 @@ const selectCount = document.getElementById('select-count');
 
 export function initSelectBar() {
   document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+    if (isShortcut(e, 'f')) {
       e.preventDefault();
       selectBar.classList.add('open');
       selectInput.focus();

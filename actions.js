@@ -1,5 +1,9 @@
 import { newId, makeEntry, makeNode, makeArrayItem, makeArray, getChildren, getNestedContainer } from './model.js';
 
+export function isShortcut(e, key) {
+  return (e.ctrlKey || e.metaKey) && e.key === key;
+}
+
 // ── collapse / expand all ─────────────────────────────────────────────────────
 
 export function setAllCollapsed(container, collapsed) {
