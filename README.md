@@ -9,7 +9,7 @@ A graphical JSON editor that runs entirely in the browser: no dependencies, one 
 - **Keyboard-first navigation**
 
   | Key | Action |
-  |-----|--------|
+  | ----- | -------- |
   | `Tab` | Move from key → value |
   | `Tab` / `Enter` in value | Add new entry below |
   | `Enter` in key | Add new entry below |
@@ -32,7 +32,7 @@ A graphical JSON editor that runs entirely in the browser: no dependencies, one 
 Open with `Ctrl+F`. Matched entries are highlighted in the editor and the filtered result appears in the preview.
 
 | Expression | Meaning |
-|------------|---------|
+| ------------ | --------- |
 | `.key` | Select a field by name |
 | `.a.b` | Nested field access |
 | `.items[]` | Iterate all values under a key |
