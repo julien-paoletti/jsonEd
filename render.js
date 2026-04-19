@@ -1,4 +1,4 @@
-import { newId, makeArrayItem } from './model.js';
+import { newId, makeArrayItem, getChildren } from './model.js';
 import {
   focusEntryKey, focusArrayItem, focusParentKeyFromRow,
   addEntryAfter, removeEntry, removeEntryAndFocusPrev,
@@ -25,6 +25,79 @@ function makeIconBtn(className, title, glyph, onClick) {
 
 const makeRemoveBtn    = onClick => makeIconBtn('remove-btn', 'Remove entry',    '×', onClick);
 const makeDuplicateBtn = onClick => makeIconBtn('dupe-btn',   'Duplicate entry', '⎘', onClick);
+
+function makeDragHandle() {
+  const handle = document.createElement('span');
+  handle.className = 'drag-handle';
+  handle.title = 'Drag to reorder';
+  handle.textContent = '⠿';
+  handle.draggable = true;
+  return handle;
+}
+
+// ── drag-and-drop ─────────────────────────────────────────────────────────────
+
+let _drag = null; // { item, parent }
+let _dragOverRow = null;
+
+function clearDropIndicators() {
+  if (_dragOverRow) {
+    _dragOverRow.classList.remove('drag-over-top', 'drag-over-bottom');
+    _dragOverRow = null;
+  }
+}
+
+function getDropTarget(e, row) {
+  const rect = row.getBoundingClientRect();
+  return e.clientY < rect.top + rect.height / 2 ? 'top' : 'bottom';
+}
+
+function attachDrag(handle, row, item, parent) {
+  handle.addEventListener('dragstart', (e) => {
+    _drag = { item, parent };
+    e.dataTransfer.effectAllowed = 'move';
+    row.classList.add('dragging');
+  });
+
+  handle.addEventListener('dragend', () => {
+    _drag = null;
+    row.classList.remove('dragging');
+    clearDropIndicators();
+  });
+
+  row.addEventListener('dragover', (e) => {
+    if (!_drag || _drag.parent !== parent) return;
+    if (_drag.item === item) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    clearDropIndicators();
+    _dragOverRow = row;
+    row.classList.add(getDropTarget(e, row) === 'top' ? 'drag-over-top' : 'drag-over-bottom');
+  });
+
+  row.addEventListener('dragleave', (e) => {
+    if (!row.contains(e.relatedTarget)) {
+      row.classList.remove('drag-over-top', 'drag-over-bottom');
+    }
+  });
+
+  row.addEventListener('drop', (e) => {
+    if (!_drag || _drag.parent !== parent || _drag.item === item) return;
+    e.preventDefault();
+    clearDropIndicators();
+
+    const children = getChildren(parent);
+    const fromIdx = children.indexOf(_drag.item);
+    let toIdx = children.indexOf(item);
+    if (getDropTarget(e, row) === 'bottom') toIdx++;
+    if (fromIdx === toIdx || fromIdx === toIdx - 1) return;
+
+    children.splice(fromIdx, 1);
+    const insertAt = fromIdx < toIdx ? toIdx - 1 : toIdx;
+    children.splice(insertAt, 0, _drag.item);
+    _rerender();
+  });
+}
 
 // ── auto-size input ───────────────────────────────────────────────────────────
 
@@ -130,6 +203,10 @@ function renderArrayItem(item, parentArr, idx) {
   row.className = 'array-item-row';
   row.dataset.entryId = item.id;
 
+  const handle = makeDragHandle();
+  attachDrag(handle, row, item, parentArr);
+  row.appendChild(handle);
+
   const idxLabel = document.createElement('span');
   idxLabel.className = 'array-idx';
   idxLabel.textContent = idx + ':';
@@ -221,6 +298,10 @@ function renderEntry(entry, parentNode, idx) {
   const row = document.createElement('div');
   row.className = 'entry-row';
   row.dataset.entryId = entry.id;
+
+  const handle = makeDragHandle();
+  attachDrag(handle, row, entry, parentNode);
+  row.appendChild(handle);
 
   const keyEl = document.createElement('input');
   keyEl.type = 'text';
