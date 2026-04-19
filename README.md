@@ -22,8 +22,8 @@ A graphical JSON editor that runs entirely in the browser: no dependencies, one 
   | `Escape` | Close select bar |
 
 - **Collapse / expand** — click the triangle next to any `{` or `[` to fold a node
-- **Live JSON preview** — right-hand panel shows the serialised output in real time
-- **Copy to clipboard** — one-click copy from the preview panel
+- **Live JSON preview** — right-hand panel shows the serialized output in real time
+- **Copy / Paste** — copy the current JSON to clipboard or paste JSON from clipboard directly into the editor
 - **Open / Save** — load any `.json` file from disk and save back to a local file
 - **jq-like select** — filter the document with path expressions (see below)
 
