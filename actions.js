@@ -1,4 +1,16 @@
-import { newId, makeEntry, makeNode, makeArrayItem, makeArray } from './model.js';
+import { newId, makeEntry, makeNode, makeArrayItem, makeArray, getChildren, getNestedContainer } from './model.js';
+
+// ── collapse / expand all ─────────────────────────────────────────────────────
+
+export function setAllCollapsed(container, collapsed) {
+  for (const child of getChildren(container)) {
+    const nested = getNestedContainer(child.value);
+    if (nested) {
+      nested.collapsed = collapsed;
+      setAllCollapsed(nested, collapsed);
+    }
+  }
+}
 
 // ── focus helpers ────────────────────────────────────────────────────────────
 

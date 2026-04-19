@@ -49,6 +49,13 @@ body {
   flex-shrink: 0;
 }
 
+.toolbar-separator {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
 #toolbar h1 {
   font-size: 15px;
   font-weight: 700;

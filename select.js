@@ -1,10 +1,16 @@
 import { nodeToJS } from './serialization.js';
+import { setAllCollapsed } from './actions.js';
+import { getChildren, getNestedContainer } from './model.js';
 
 // injected by app.js
 let _rootNode;
 let _updatePreview;
+let _rerender;
 export function setRootNodeGetter(fn)  { _rootNode = fn; }
 export function setUpdatePreview(fn)   { _updatePreview = fn; }
+export function setRerender(fn)        { _rerender = fn; }
+
+let _selectRerenderInProgress = false;
 
 const selectBar   = document.getElementById('select-bar');
 const selectInput = document.getElementById('select-input');
@@ -31,6 +37,7 @@ export function initSelectBar() {
 }
 
 export function refreshSelect() {
+  if (_selectRerenderInProgress) return;
   if (selectBar.classList.contains('open') && selectInput.value.trim()) runSelect();
 }
 
@@ -39,7 +46,8 @@ function closeSelect() {
   selectInput.value = '';
   clearSelectHighlights();
   selectCount.textContent = '';
-  _updatePreview();
+  setAllCollapsed(_rootNode(), false);
+  _rerender();
 }
 
 function clearSelectHighlights() {
@@ -48,7 +56,6 @@ function clearSelectHighlights() {
 
 function runSelect() {
   const expr = selectInput.value.trim();
-  clearSelectHighlights();
   selectInput.classList.remove('error');
 
   if (!expr) {
@@ -63,6 +70,13 @@ function runSelect() {
     const results = jqEval(expr, [js]);
 
     const ids = collectMatchedEntryIds(expr, rootNode);
+
+    setAllCollapsed(rootNode, true);
+    expandAncestors(rootNode, ids);
+    _selectRerenderInProgress = true;
+    _rerender();
+    _selectRerenderInProgress = false;
+
     ids.forEach(id => {
       const row = document.querySelector(`[data-entry-id="${id}"]`);
       if (row) row.classList.add('select-match');
@@ -225,6 +239,24 @@ function collectFromNode(node, expr, ids) {
       }
     }
   }
+}
+
+// Returns true if container has a descendant whose id is in matchedIds.
+// As a side-effect, sets collapsed=false on every ancestor of a match.
+function expandAncestors(container, matchedIds) {
+  let hasMatch = false;
+  for (const child of getChildren(container)) {
+    if (matchedIds.has(child.id)) {
+      hasMatch = true;
+    } else {
+      const nested = getNestedContainer(child.value);
+      if (nested && expandAncestors(nested, matchedIds)) {
+        nested.collapsed = false;
+        hasMatch = true;
+      }
+    }
+  }
+  return hasMatch;
 }
 
 function collectNodesForExpr(node, expr) {

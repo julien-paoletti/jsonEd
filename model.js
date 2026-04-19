@@ -16,3 +16,13 @@ export function makeArrayItem(valueText = '') {
 export function makeArray(items) {
   return { type: 'array', items: items || [makeArrayItem()] };
 }
+
+export function getChildren(container) {
+  return container.type === 'object' ? container.entries : container.items;
+}
+
+export function getNestedContainer(value) {
+  if (value.type === 'object') return value.node;
+  if (value.type === 'array')  return value.arr;
+  return null;
+}

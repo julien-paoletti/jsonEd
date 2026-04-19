@@ -1,9 +1,8 @@
 import { makeNode } from './model.js';
 import { nodeToJS, jsToNode } from './serialization.js';
-import { setRerender } from './actions.js';
+import { setRerender, focusEntryKey, setAllCollapsed } from './actions.js';
 import { renderNode, setUpdatePreview, setRerender as setRenderRerender } from './render.js';
-import { focusEntryKey } from './actions.js';
-import { initSelectBar, refreshSelect, setRootNodeGetter, setUpdatePreview as setSelectUpdatePreview } from './select.js';
+import { initSelectBar, refreshSelect, setRootNodeGetter, setUpdatePreview as setSelectUpdatePreview, setRerender as setSelectRerender } from './select.js';
 
 const SVG_COPY  = '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>';
 const SVG_CHECK = '<polyline points="20 6 9 17 4 12"/>';
@@ -31,9 +30,20 @@ setRerender(rerender);
 setRenderRerender(rerender);
 setUpdatePreview(updatePreview);
 setSelectUpdatePreview(updatePreview);
+setSelectRerender(rerender);
 setRootNodeGetter(() => rootNode);
 
 // ── toolbar ───────────────────────────────────────────────────────────────────
+
+document.getElementById('btn-collapse-all').addEventListener('click', () => {
+  setAllCollapsed(rootNode, true);
+  rerender();
+});
+
+document.getElementById('btn-expand-all').addEventListener('click', () => {
+  setAllCollapsed(rootNode, false);
+  rerender();
+});
 
 document.getElementById('btn-save').addEventListener('click', saveFile);
 
