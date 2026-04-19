@@ -1,0 +1,7 @@
+{
+  "name": "jsoned",
+  "private": true,
+  "scripts": {
+    "start": "npx serve ."
+  }
+}

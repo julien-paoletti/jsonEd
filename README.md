@@ -49,7 +49,13 @@ No installation required.
 
 ## Development
 
-The entire application is a single `index.html` file — HTML, CSS, and JS all in one place. Edit it directly and open in a browser to test.
+The app uses ES modules, so it must be served over HTTP rather than opened as a `file://` URL. Run a local dev server:
+
+```sh
+npm start
+```
+
+Then open `http://localhost:3000` in your browser. The GitHub Pages deployment works as-is since it serves over HTTPS.
 
 ## License
 
