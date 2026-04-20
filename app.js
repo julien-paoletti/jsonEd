@@ -128,6 +128,35 @@ function newDocument() {
   focusEntryKey(rootNode.entries[0].id);
 }
 
+// ── panel resizer ─────────────────────────────────────────────────────────────
+
+const resizer = document.getElementById('panel-resizer');
+const main    = document.getElementById('main');
+
+resizer.addEventListener('mousedown', () => {
+  resizer.classList.add('dragging');
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+
+  const mainRect = main.getBoundingClientRect();
+
+  const onMove = (mv) => {
+    const width = Math.max(150, Math.min(mainRect.width - 200, mainRect.right - mv.clientX));
+    main.style.setProperty('--preview-width', width + 'px');
+  };
+
+  const onUp = () => {
+    resizer.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+});
+
 // ── init ──────────────────────────────────────────────────────────────────────
 
 initSelectBar();

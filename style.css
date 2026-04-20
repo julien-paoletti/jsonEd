@@ -110,11 +110,23 @@ body {
   min-width: 0;
 }
 
+#panel-resizer {
+  width: 5px;
+  flex-shrink: 0;
+  background: var(--border);
+  cursor: col-resize;
+  transition: background 0.15s;
+}
+
+#panel-resizer:hover,
+#panel-resizer.dragging {
+  background: var(--focus-ring);
+}
+
 #preview-panel {
-  width: 300px;
+  width: var(--preview-width, 300px);
   flex-shrink: 0;
   background: var(--surface);
-  border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -136,10 +148,23 @@ body {
   color: var(--subtext);
 }
 
-#btn-copy,
-#btn-paste {
+.btn-group {
+  display: flex;
+}
+
+.btn-group .btn {
   padding: 3px 8px;
   font-size: 11px;
+  border-radius: 0;
+}
+
+.btn-group .btn:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.btn-group .btn:last-child {
+  border-radius: 0 6px 6px 0;
+  margin-left: -1px;
 }
 
 #btn-copy.copied {
