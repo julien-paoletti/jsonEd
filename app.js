@@ -1,5 +1,5 @@
 import { makeNode } from './model.js';
-import { nodeToJS, jsToNode } from './serialization.js';
+import { nodeToJS, jsToNode, parseFlexible, PARSE_FAILED_SENTINEL } from './serialization.js';
 import { setRerender, focusEntryKey, setAllCollapsed, isShortcut } from './actions.js';
 import { renderNode, setUpdatePreview, setRerender as setRenderRerender } from './render.js';
 import { initSelectBar, refreshSelect, setRootNodeGetter, setUpdatePreview as setSelectUpdatePreview, setRerender as setSelectRerender } from './select.js';
@@ -66,11 +66,12 @@ document.getElementById('btn-copy').addEventListener('click', (e) => {
 document.getElementById('btn-paste').addEventListener('click', (e) => {
   const btn = e.currentTarget;
   navigator.clipboard.readText().then((text) => {
-    try {
-      rootNode = jsToNode(JSON.parse(text));
+    const parsed = parseFlexible(text);
+    if (parsed !== PARSE_FAILED_SENTINEL) {
+      rootNode = jsToNode(parsed);
       rerender();
       focusEntryKey(rootNode.entries[0].id);
-    } catch {
+    } else {
       btn.classList.add('error');
       setTimeout(() => btn.classList.remove('error'), 1500);
     }
@@ -107,10 +108,11 @@ document.getElementById('file-input').addEventListener('change', (e) => {
   document.getElementById('filename-display').textContent = file.name;
   const reader = new FileReader();
   reader.onload = (ev) => {
-    try {
-      rootNode = jsToNode(JSON.parse(ev.target.result));
+    const parsed = parseFlexible(ev.target.result);
+    if (parsed !== PARSE_FAILED_SENTINEL) {
+      rootNode = jsToNode(parsed);
       rerender();
-    } catch {
+    } else {
       alert('Invalid JSON file.');
     }
   };

@@ -50,3 +50,28 @@ export function jsToArr(arr) {
   if (items.length === 0) items.push(makeArrayItem());
   return { type: 'array', items };
 }
+
+const PARSE_FAILED = Symbol();
+
+function tryParse(text) {
+  try { return JSON.parse(text); } catch { return PARSE_FAILED; }
+}
+
+function loosen(text) {
+  return text
+    .replace(/\/\/[^\n]*/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/([{,]\s*)([A-Za-z_$][A-Za-z0-9_$]*)(\s*:)/g, '$1"$2"$3')
+    .replace(/'((?:[^'\\]|\\.)*)'/g, '"$1"')
+    .replace(/,(\s*[}\]])/g, '$1');
+}
+
+// Returns parsed value on success, or PARSE_FAILED sentinel on failure.
+export const PARSE_FAILED_SENTINEL = PARSE_FAILED;
+
+export function parseFlexible(text) {
+  const strict = tryParse(text);
+  if (strict !== PARSE_FAILED) return strict;
+  const loose = tryParse(loosen(text));
+  return loose !== PARSE_FAILED ? loose : PARSE_FAILED;
+}
