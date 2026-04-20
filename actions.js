@@ -45,7 +45,7 @@ export function cloneValue(value) {
   throw new Error(`cloneValue: unhandled type "${value.type}"`);
 }
 
-function cloneNode(node) {
+export function cloneNode(node) {
   return {
     type: 'object',
     collapsed: false,

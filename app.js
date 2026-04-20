@@ -3,6 +3,7 @@ import { nodeToJS, jsToNode } from './serialization.js';
 import { setRerender, focusEntryKey, setAllCollapsed, isShortcut } from './actions.js';
 import { renderNode, setUpdatePreview, setRerender as setRenderRerender } from './render.js';
 import { initSelectBar, refreshSelect, setRootNodeGetter, setUpdatePreview as setSelectUpdatePreview, setRerender as setSelectRerender } from './select.js';
+import { pushSnapshot, undo, redo, setDependencies as setHistoryDependencies } from './history.js';
 
 const SVG_COPY  = '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>';
 const SVG_CHECK = '<polyline points="20 6 9 17 4 12"/>';
@@ -18,6 +19,7 @@ function updatePreview() {
 }
 
 function rerender() {
+  pushSnapshot(rootNode);
   const panel = document.getElementById('root-node');
   panel.innerHTML = '';
   panel.appendChild(renderNode(rootNode));
@@ -26,6 +28,7 @@ function rerender() {
 }
 
 // inject dependencies
+setHistoryDependencies(() => rootNode, node => { rootNode = node; }, rerender);
 setRerender(rerender);
 setRenderRerender(rerender);
 setUpdatePreview(updatePreview);
@@ -81,10 +84,9 @@ document.getElementById('btn-open').addEventListener('click', () => {
 document.getElementById('btn-new').addEventListener('click', newDocument);
 
 document.addEventListener('keydown', (e) => {
-  if (isShortcut(e, 's')) {
-    e.preventDefault();
-    saveFile();
-  }
+  if (isShortcut(e, 's')) { e.preventDefault(); saveFile(); return; }
+  if (isShortcut(e, 'z') && !e.shiftKey) { e.preventDefault(); undo(); return; }
+  if (isShortcut(e, 'y') || (isShortcut(e, 'z') && e.shiftKey)) { e.preventDefault(); redo(); }
 });
 
 function saveFile() {
