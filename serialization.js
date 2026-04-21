@@ -62,7 +62,7 @@ function loosen(text) {
     .replace(/\/\/[^\n]*/g, '')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/([{,]\s*)([A-Za-z_$][A-Za-z0-9_$]*)(\s*:)/g, '$1"$2"$3')
-    .replace(/'((?:[^'\\]|\\.)*)'/g, (_, inner) => '"' + inner.replace(/(?<!\\)"/g, '\\"') + '"')
+    .replace(/'((?:[^'\\]|\\.)*)'/g, (_, inner) => '"' + inner.replace(/(?<!\\)"/g, '\\"').replace(/\\'/g, "'") + '"')
     .replace(/,(\s*[}\]])/g, '$1');
 }
 
