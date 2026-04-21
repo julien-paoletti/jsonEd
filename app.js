@@ -11,6 +11,11 @@ const SVG_CHECK = '<polyline points="20 6 9 17 4 12"/>';
 let rootNode = makeNode();
 let currentFilename = 'untitled.json';
 
+function flashError(btn) {
+  btn.classList.add('error');
+  setTimeout(() => btn.classList.remove('error'), 1500);
+}
+
 // ── core functions ────────────────────────────────────────────────────────────
 
 function updatePreview() {
@@ -51,15 +56,18 @@ document.getElementById('btn-expand-all').addEventListener('click', () => {
 document.getElementById('btn-save').addEventListener('click', saveFile);
 
 document.getElementById('btn-copy').addEventListener('click', (e) => {
+  const btn = e.currentTarget;
   const json = document.getElementById('preview-content').textContent;
   navigator.clipboard.writeText(json).then(() => {
-    const btn = e.currentTarget;
     btn.classList.add('copied');
     btn.querySelector('svg').innerHTML = SVG_CHECK;
     setTimeout(() => {
       btn.classList.remove('copied');
       btn.querySelector('svg').innerHTML = SVG_COPY;
     }, 1500);
+  }).catch((err) => {
+    console.error('Copy failed: could not write to clipboard.', err);
+    flashError(btn);
   });
 });
 
@@ -72,9 +80,12 @@ document.getElementById('btn-paste').addEventListener('click', (e) => {
       rerender();
       focusEntryKey(rootNode.entries[0].id);
     } else {
-      btn.classList.add('error');
-      setTimeout(() => btn.classList.remove('error'), 1500);
+      console.error('Paste failed: clipboard content is not valid JSON or JS object literal.', text);
+      flashError(btn);
     }
+  }).catch((err) => {
+    console.error('Paste failed: could not read clipboard.', err);
+    flashError(btn);
   });
 });
 
